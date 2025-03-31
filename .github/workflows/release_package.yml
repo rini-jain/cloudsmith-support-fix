@@ -16,7 +16,7 @@ env:
 permissions:
   contents: read
   actions: read
-  id-token: write  
+  id-token: write  # Required for OIDC
 
 jobs:
   publish:
@@ -37,7 +37,15 @@ jobs:
         run: ls -la dist/
         shell: bash
 
-      - name: Install Cloudsmith CLI
+      - name: DEBUG - Show GitHub OIDC info
+        run: |
+          echo "OIDC Request URL:"
+          echo "$ACTIONS_ID_TOKEN_REQUEST_URL"
+          echo "OIDC Token (truncated):"
+          echo "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:0:10}********"
+        shell: bash
+
+      - name: Authenticate with Cloudsmith using official OIDC action
         uses: cloudsmith-io/cloudsmith-cli-action@v1.0.1
         with:
           oidc-namespace: ${{ env.CLOUDSMITH_NAMESPACE }}
@@ -45,9 +53,12 @@ jobs:
 
       - name: Push package to Cloudsmith
         run: |
+          echo "🚀 Pushing package to Cloudsmith..."
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "No package found to upload"
+            echo "❌ No package found to upload"
             exit 1
           fi
-          cloudsmith push python ${{ env.CLOUDSMITH_NAMESPACE }}/${{ env.CLOUDSMITH_REPOSITORY }} dist/*.tar.gz --republish
+          cloudsmith push python \
+            ${{ env.CLOUDSMITH_NAMESPACE }}/${{ env.CLOUDSMITH_REPOSITORY }} \
+            dist/*.tar.gz --republish
         shell: bash
