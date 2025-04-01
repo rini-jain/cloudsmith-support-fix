@@ -49,7 +49,7 @@ jobs:
             "https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/" | jq -r '.token')
 
           if [ -z "$cloudsmith_token" ]; then
-            echo "❌ Failed to retrieve Cloudsmith token"
+            echo " Failed to retrieve Cloudsmith token"
             exit 1
           fi
 
