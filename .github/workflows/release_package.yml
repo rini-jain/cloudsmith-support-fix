@@ -46,14 +46,15 @@ jobs:
           value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
           "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
 
-          token=$(echo "$value" | jq -r '.value // empty')
+          # Safely extract and encode token
+          token=$(echo "$value" | jq -r '.value // empty' | jq -Rs .)
 
-          echo "DEBUG - Extracted OIDC token:"
+          echo "DEBUG - Escaped Token for JSON:"
           echo "$token"
 
           echo "Exchanging token with Cloudsmith..."
           token_final=$(curl -s -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":\"$token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+          -d "{\"oidc_token\":$token, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
           https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
 
           echo "DEBUG - Raw Cloudsmith response:"
