@@ -39,33 +39,30 @@ jobs:
        run: |
           echo "Requesting OIDC token..."
 
-          # Get the raw OIDC token from GitHub
           value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
 
-          echo "OIDC Raw Token: $value"
+          echo "✅ OIDC Raw Token received"
 
-          # Exchange the OIDC token for Cloudsmith token
+          echo "Exchanging token with Cloudsmith..."
+          echo "Namespace: '$CLOUDSMITH_NAMESPACE'"
+          echo "Service Slug: '$CLOUDSMITH_SERVICE_SLUG'"
+
           token=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"oidc_token\":\"$value\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
             "https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/" | jq -r '.token')
 
-          echo "🔑 Token: $token"
+          echo "🔑 Cloudsmith Token: ${token:0:10}..."
 
-          # Validate the token
-          curl --request GET \
+          echo "Validating Cloudsmith Token..."
+          curl --silent --request GET \
             --url https://api.cloudsmith.io/v1/user/self/ \
             --header "X-Api-Key:Bearer $token" \
             --header 'accept: application/json'
 
-          # Set the token as GitHub Actions Environment variable
           echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
-
        shell: bash
-       env:
-          CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-          CLOUDSMITH_REPOSITORY: "staging"
-          CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
+
 
 
 
