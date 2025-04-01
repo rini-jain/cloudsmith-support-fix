@@ -51,7 +51,8 @@ jobs:
           token_final=$(curl -s -X POST -H "Content-Type: application/json" \
           -d "{\"oidc_token\":\"$token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
           https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
-
+          echo "DEBUG - Raw Cloudsmith response:"
+          echo "$token_final"
           final_api_token=$(echo "$token_final" | jq -r '.token // empty')
 
           echo "DEBUG - Final Token:"
