@@ -35,13 +35,18 @@ jobs:
      - name: List directory contents
        run: ls -la dist/
        shell: bash
-     -  name: Get OIDC token
-        run: |
-          value=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
-          
+     - name: Get OIDC token
+       run: |
+          echo "Requesting OIDC token..."
+          value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
+
+          echo "Exchanging with Cloudsmith..."
           token=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"oidc_token\":\"$value\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
             "https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/" | jq -r '.token')
+
+          echo "🔑 Token: $token"
 
           curl --request GET \
             --url https://api.cloudsmith.io/v1/user/self/ \
@@ -49,7 +54,8 @@ jobs:
             --header 'accept: application/json'
 
           echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
-        shell: bash
+       shell: bash
+
 
 
 
