@@ -8,27 +8,27 @@ on:
     branches:
       - main
 
-# Yeh teen vars hum GitHub → Settings → Variables me set karenge:
-# 1) CLOUDSMITH_NAMESPACE (e.g., rini-jain-rnye)
-# 2) CLOUDSMITH_REPOSITORY (e.g., staging)
-# 3) CLOUDSMITH_SERVICE_SLUG (e.g., github-actions-oidc)
 env:
-  CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-  CLOUDSMITH_REPOSITORY: ${{ vars.CLOUDSMITH_REPOSITORY }}
-  CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
+  CLOUDSMITH_NAMESPACE: ${{ env.CLOUDSMITH_NAMESPACE }}
+  CLOUDSMITH_REPOSITORY: ${{ env.CLOUDSMITH_REPOSITORY }}
+  CLOUDSMITH_SERVICE_SLUG: ${{ env.CLOUDSMITH_SERVICE_SLUG }}
 
 permissions:
   contents: read
   actions: read
-  id-token: write  # OIDC ke liye zaruri
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
+      CLOUDSMITH_REPOSITORY: ${{ vars.CLOUDSMITH_REPOSITORY }}
+      CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
+
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      # 1) Build se jo artifact bana, wo download karlo
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -38,65 +38,51 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      # 2) Debug ke liye dist/ me kya hai
-      - name: List directory contents
+      - name: List contents of dist/
         run: ls -la dist/
 
-      # 3) Cloudsmith CLI install karo, taki 'cloudsmith' command mile
-      - name: Install Cloudsmith CLI
-        run: pip install cloudsmith-cli
-
-      # 4) OIDC token manually le ke Cloudsmith me exchange karo
-      - name: Generate OIDC Token
+      - name: ✅ Install Cloudsmith CLI
         run: |
-          echo "Requesting OIDC Token from GitHub..."
-          # GitHub se token lo
-          value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          pip install cloudsmith-cli
+
+      - name: 🔐 Get OIDC Token from GitHub and exchange with Cloudsmith
+        run: |
+          echo "Namespace: $CLOUDSMITH_NAMESPACE"
+          echo "Service Slug: $CLOUDSMITH_SERVICE_SLUG"
+
+          echo "Requesting OIDC token from GitHub..."
+          oidc_response=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
           "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
 
-          # JSON se 'value' nikal lo (ye OIDC JWT hota hai)
-          token=$(echo "$value" | jq '.value')
+          token=$(echo "$oidc_response" | jq '.value')
 
-          echo "Exchanging token with Cloudsmith (Namespace = $CLOUDSMITH_NAMESPACE, Slug = $CLOUDSMITH_SERVICE_SLUG)..."
+          echo "Exchanging token with Cloudsmith..."
+          response=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"oidc_token\":$token, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+            https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
 
-          # Cloudsmith me post karo (namespace + service_slug)
-          token_final=$(curl -s -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":$token, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
+          echo "Cloudsmith Response:"
+          echo "$response"
 
-          echo "DEBUG - Cloudsmith response:"
-          echo "$token_final"
+          short_token=$(echo "$response" | jq -r '.token')
 
-          # Wahan se short-lived token nikal lo
-          final_api_token=$(echo "$token_final" | jq -r '.token')
-
-          if [ -n "$final_api_token" ]; then
-            # Isko hum ek ENV var me store karenge job ke andar
-            echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
+          if [ -n "$short_token" ]; then
+            echo "CLOUDSMITH_API_KEY=$short_token" >> $GITHUB_ENV
           else
-            echo "❌ Failed to extract short-lived token from Cloudsmith"
+            echo "❌ Failed to get short-lived token"
             exit 1
           fi
-        # Yahan hum ENV me hi 'CLOUDSMITH_NAMESPACE' waghaira pass kar sakte hain agar chahein
-        env:
-          CLOUDSMITH_NAMESPACE: ${{ env.CLOUDSMITH_NAMESPACE }}
-          CLOUDSMITH_SERVICE_SLUG: ${{ env.CLOUDSMITH_SERVICE_SLUG }}
 
-      # 5) Python package push karo
-      - name: Push Python Package to Cloudsmith
+      - name: 🚀 Push Python Package to Cloudsmith
         run: |
           echo "Pushing package to Cloudsmith..."
-          # Agar package hi nahi mila to error
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "No Python package found to upload"
+            echo "❌ No package found"
             exit 1
           fi
 
-          # Cloudsmith CLI use karke push kar do
           cloudsmith push python \
             $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_REPOSITORY \
             dist/*.tar.gz --republish
         env:
           CLOUDSMITH_API_KEY: ${{ env.CLOUDSMITH_API_KEY }}
-          CLOUDSMITH_NAMESPACE: ${{ env.CLOUDSMITH_NAMESPACE }}
-          CLOUDSMITH_REPOSITORY: ${{ env.CLOUDSMITH_REPOSITORY }}
