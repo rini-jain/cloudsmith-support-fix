@@ -38,32 +38,36 @@ jobs:
         shell: bash
 
       - name: Get OIDC token and exchange with Cloudsmith
-        run: |
-          echo "Requesting OIDC token from GitHub..."
-          value=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
+  run: |
+    echo "Requesting OIDC token from GitHub..."
+    value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+    "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
 
-          token=$(echo "$value" | jq -r '.value')
+    token=$(echo "$value" | jq -r '.value')
 
+    echo "Exchanging token with Cloudsmith..."
+    token_final=$(curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"oidc_token\":\"$token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+    https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
 
-          echo "Exchanging token with Cloudsmith..."
-          token_final=$(curl -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":\"$token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
+    echo "DEBUG - Cloudsmith Response:"
+    echo "$token_final"
 
+    final_api_token=$(echo "$token_final" | jq -r '.token // empty')
 
-          final_api_token=$(echo "$token_final" | jq -r '.token // empty')
+    echo "DEBUG - Final Token:"
+    echo "$final_api_token"
 
+    if [ -n "$final_api_token" ]; then
+      echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
+    else
+      echo "❌ Failed to extract token from Cloudsmith"
+      exit 1
+    fi
+  env:
+    CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
+    CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
 
-          echo "DEBUG - Final Token:"
-          echo "$final_api_token"
-
-          if [ -n "$final_api_token" ]; then
-            echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
-          else
-            echo "❌ Failed to extract token from Cloudsmith"
-            exit 1
-          fi
 
       - name: Push package to Cloudsmith
         run: |
