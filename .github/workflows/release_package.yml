@@ -11,21 +11,21 @@ on:
 permissions:
   contents: read
   actions: read
-  id-token: write  # Required for OIDC token exchange
+  id-token: write  # Needed for OIDC
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
-    # Use GitHub Variables for reusability
+    # Use GitHub Variables
     env:
       CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
       CLOUDSMITH_REPOSITORY: ${{ vars.CLOUDSMITH_REPOSITORY }}
       CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
 
     steps:
-      - name: ⬇️ Download artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: python-package
@@ -34,47 +34,49 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      - name: 📦 List dist contents
+      - name: List contents of dist/
         run: ls -la dist/
 
-      - name: 🔧 Install Cloudsmith CLI
+      - name: Install Cloudsmith CLI
         run: pip install cloudsmith-cli
 
-      - name: 🔐 Get OIDC token and exchange with Cloudsmith
+      - name: Get OIDC token & exchange with Cloudsmith
+        # ⚠️ Using {{ env.VAR }} directly in the curl URL
         run: |
-          echo "🔍 Namespace: $CLOUDSMITH_NAMESPACE"
-          echo "🔍 Service Slug: $CLOUDSMITH_SERVICE_SLUG"
+          echo "Namespace: $CLOUDSMITH_NAMESPACE"
+          echo "Service Slug: $CLOUDSMITH_SERVICE_SLUG"
 
-          echo "📡 Requesting OIDC token from GitHub..."
+          echo "Requesting OIDC token from GitHub..."
           oidc_response=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
 
-          token=$(echo "$oidc_response" | jq -r '.value')
+          token=$(echo "$oidc_response" | jq -r '.value // empty')
 
-          echo "🔁 Exchanging token with Cloudsmith..."
+          echo "Exchanging token with Cloudsmith via URL interpolation..."
           response=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"oidc_token\":\"$token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-            https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
+            https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/)
 
           short_token=$(echo "$response" | jq -r '.token // empty')
 
           if [ -n "$short_token" ]; then
-            echo "✅ Token exchange successful"
             echo "CLOUDSMITH_API_KEY=$short_token" >> $GITHUB_ENV
+            echo "Token exchange successful"
           else
-            echo "❌ Failed to retrieve token from Cloudsmith"
+            echo "Failed to retrieve short-lived token"
             echo "$response"
             exit 1
           fi
 
-      - name: 🚀 Push package to Cloudsmith
+      - name: Push Python Package to Cloudsmith
         run: |
-          echo "📦 Uploading package to Cloudsmith..."
+          echo "Pushing package to Cloudsmith..."
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "❌ No Python package found"
+            echo "No package found"
             exit 1
           fi
 
+          # Using the environment variables in shell
           cloudsmith push python \
             $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_REPOSITORY \
             dist/*.tar.gz --republish
