@@ -43,7 +43,8 @@ jobs:
           value=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
           "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
 
-          token=$(echo $value | jq '.value')
+          token=$(echo "$value" | jq -r '.value')
+
 
           echo "Exchanging token with Cloudsmith..."
           token_final=$(curl -X POST -H "Content-Type: application/json" \
@@ -52,11 +53,16 @@ jobs:
 
           final_api_token=$(echo "$token_final" | jq -r '.token // empty')
 
-          echo "DEBUG - token_final response:"
-          echo "$token_final"
 
-          echo "Token retrieved. Setting CLOUDSMITH_API_KEY..."
-          echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
+          echo "DEBUG - Final Token:"
+          echo "$final_api_token"
+
+          if [ -n "$final_api_token" ]; then
+            echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
+          else
+            echo "❌ Failed to extract token from Cloudsmith"
+            exit 1
+          fi
 
       - name: Push package to Cloudsmith
         run: |
