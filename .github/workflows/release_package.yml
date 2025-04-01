@@ -16,7 +16,7 @@ env:
 permissions:
   contents: read
   actions: read
-  id-token: write
+  id-token: write  # Required for OIDC
 
 jobs:
   publish:
@@ -42,28 +42,26 @@ jobs:
           echo "Namespace: $CLOUDSMITH_NAMESPACE"
           echo "Service Slug: $CLOUDSMITH_SERVICE_SLUG"
           
-          echo "Requesting OIDC token from GitHub..."
-          value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
+          echo "🔐 Requesting OIDC token from GitHub..."
+          token=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain" \
+          | jq -r '.value // empty')
 
-          # Safely extract and encode token
-          token=$(echo "$value" | jq -r '.value // empty' | jq -Rs .)
+          # Properly escape the token for safe JSON
+          escaped_token=$(printf '%s' "$token" | jq -Rs .)
 
-          echo "DEBUG - Escaped Token for JSON:"
-          echo "$token"
-
-          echo "Exchanging token with Cloudsmith..."
+          echo "🔄 Exchanging token with Cloudsmith..."
           token_final=$(curl -s -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":$token, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+          -d "{\"oidc_token\":$escaped_token, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
           https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
 
-          echo "DEBUG - Raw Cloudsmith response:"
+          echo "🌐 Cloudsmith response:"
           echo "$token_final"
 
           final_api_token=$(echo "$token_final" | jq -r '.token // empty')
 
-          echo "DEBUG - Final Token:"
-          echo "$final_api_token"
+          echo "🔑 Final Token (shortened):"
+          echo "${final_api_token:0:10}..."
 
           if [ -n "$final_api_token" ]; then
             echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
@@ -77,7 +75,7 @@ jobs:
 
       - name: Push package to Cloudsmith
         run: |
-          echo "Pushing package to Cloudsmith..."
+          echo "📦 Pushing package to Cloudsmith..."
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
             echo "❌ No package found to upload"
             exit 1
