@@ -14,9 +14,9 @@ permissions:
   actions: read
 
 env:
-  CLOUDSMITH_NAMESPACE: simran-parwani-testorg      # change if needed
-  CLOUDSMITH_REPOSITORY: staging                    # change if needed
-  CLOUDSMITH_SERVICE_SLUG: terraformbot-idAf        # change if needed
+  CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
+  CLOUDSMITH_REPOSITORY: "staging"
+  CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
 
 jobs:
   publish:
