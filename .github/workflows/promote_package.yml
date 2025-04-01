@@ -28,6 +28,13 @@ jobs:
     steps:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Debug Cloudsmith Vars
+        run: |
+          echo "Namespace: $CLOUDSMITH_NAMESPACE"
+          echo "Repo Src: $CLOUDSMITH_REPOSITORY_SRC"
+          echo "Repo Dest: $CLOUDSMITH_REPOSITORY_DEST"
+          echo "Package: $PACKAGE_NAME"
+          echo "Version: $PACKAGE_VERSION"
 
       - name: Get OIDC Token
         run: |
@@ -47,7 +54,8 @@ jobs:
         run: |
           echo "Promoting $PACKAGE_NAME-$PACKAGE_VERSION from $CLOUDSMITH_REPOSITORY_SRC to $CLOUDSMITH_REPOSITORY_DEST"
 
-          curl -X POST "https://api.cloudsmith.io/v1/packages/${CLOUDSMITH_NAMESPACE}/${CLOUDSMITH_REPOSITORY_SRC}/${PACKAGE_NAME}/${PACKAGE_VERSION}/move/" \
+          curl -X POST "https://api.cloudsmith.io/v1/packages/${CLOUDSMITH_NAMESPACE}/${CLOUDSMITH_REPOSITORY_SRC}/${PACKAGE_NAME}/${PACKAGE_VERSION}/move/"
+
             -H "Authorization: Bearer $CLOUDSMITH_API_KEY" \
             -H "Content-Type: application/json" \
             -d "{ \"destination_repo\": \"$CLOUDSMITH_REPOSITORY_DEST\" }"
