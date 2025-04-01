@@ -48,7 +48,7 @@ jobs:
 
           token=$(curl -s -X POST -H "Content-Type: application/json" \
           -d "{\"oidc_token\":$value, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/ | jq -r '.token')
+          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE | jq -r '.token')
 
           curl --request GET \
           --url https://api.cloudsmith.io/v1/user/self/ \
@@ -61,7 +61,7 @@ jobs:
         run: |
           echo "📦 Uploading to Cloudsmith..."
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "❌ No Python package found to upload"
+            echo " No Python package found to upload"
             exit 1
           fi
           cloudsmith push python \
