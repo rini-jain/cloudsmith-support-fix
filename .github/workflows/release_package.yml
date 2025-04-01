@@ -47,8 +47,8 @@ jobs:
           "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq '.value')
 
           token=$(curl -s -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":$value, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/ | jq -r '.token')
+          -d "{\"oidc_token\":$value, \"service_slug\":\"github-actions-oidc\"}" \
+          https://api.cloudsmith.io/openid/rini-jain-rnye/ | jq -r '.token')
 
           curl --request GET \
           --url https://api.cloudsmith.io/v1/user/self/ \
