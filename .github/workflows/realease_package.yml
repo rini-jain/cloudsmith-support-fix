@@ -1,6 +1,12 @@
 name: Publish Python Package
 on:
-  workflow_dispatch:
+ workflow_run:
+   workflows: ["Build Python Package"]
+   types:
+     - completed
+   branches:
+     - main
+
 env:
   CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
   CLOUDSMITH_REPOSITORY: "staging"
