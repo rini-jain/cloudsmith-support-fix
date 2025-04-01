@@ -38,19 +38,18 @@ jobs:
      - name: Get OIDC token
        run: |
           echo "Requesting OIDC token..."
-
           value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
 
           echo "✅ OIDC Raw Token received"
 
           echo "Exchanging token with Cloudsmith..."
-          echo "Namespace: '$CLOUDSMITH_NAMESPACE'"
+          echo "Namespace: '$(echo -n $CLOUDSMITH_NAMESPACE)'"
           echo "Service Slug: '$CLOUDSMITH_SERVICE_SLUG'"
 
           token=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"oidc_token\":\"$value\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-            "https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/" | jq -r '.token')
+            "https://api.cloudsmith.io/openid/$(echo -n $CLOUDSMITH_NAMESPACE)/" | jq -r '.token')
 
           echo "🔑 Cloudsmith Token: ${token:0:10}..."
 
@@ -62,6 +61,7 @@ jobs:
 
           echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
        shell: bash
+
 
 
 
