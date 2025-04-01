@@ -8,15 +8,10 @@ on:
     branches:
       - main
 
-env:
-  CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-  CLOUDSMITH_REPOSITORY: staging
-  CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
-
 permissions:
   contents: read
   actions: read
-  id-token: write  # Required for OIDC
+  id-token: write
 
 jobs:
   publish:
@@ -37,54 +32,39 @@ jobs:
         run: ls -la dist/
         shell: bash
 
-      - name: Get OIDC token and exchange with Cloudsmith
+      - name: Generate OIDC Token
         run: |
-          echo "Namespace: $CLOUDSMITH_NAMESPACE"
-          echo "Service Slug: $CLOUDSMITH_SERVICE_SLUG"
-          
-          echo "🔐 Requesting OIDC token from GitHub..."
-          token=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain" \
-          | jq -r '.value // empty')
+          echo "Requesting OIDC Token..."
+          value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
 
-          # Properly escape the token for safe JSON
-          escaped_token=$(printf '%s' "$token" | jq -Rs .)
+          # Extract the OIDC token field from JSON
+          token=$(echo "$value" | jq '.value')
 
-          echo "🔄 Exchanging token with Cloudsmith..."
+          # Exchange token with Cloudsmith using fixed service slug + namespace
           token_final=$(curl -s -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":$escaped_token, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
+          -d "{\"oidc_token\":$token, \"service_slug\":\"github-actions-oidc\"}" \
+          https://api.cloudsmith.io/openid/rini-jain-rnye/)
 
-          echo "🌐 Cloudsmith response:"
+          final_api_token=$(echo "$token_final" | jq -r '.token')
+
+          echo "DEBUG - Raw Cloudsmith response:"
           echo "$token_final"
-
-          final_api_token=$(echo "$token_final" | jq -r '.token // empty')
-
-          echo "🔑 Final Token (shortened):"
-          echo "${final_api_token:0:10}..."
-
+          
           if [ -n "$final_api_token" ]; then
             echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
           else
-            echo "❌ Failed to extract token from Cloudsmith"
+            echo "❌ Failed to extract short-lived token from Cloudsmith"
             exit 1
           fi
-        env:
-          CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-          CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
 
-      - name: Push package to Cloudsmith
+      - name: Push Python Package to Cloudsmith
         run: |
-          echo "📦 Pushing package to Cloudsmith..."
+          echo "Pushing package to Cloudsmith..."
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "❌ No package found to upload"
+            echo "No Python package found to upload"
             exit 1
           fi
-          cloudsmith push python \
-            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_REPOSITORY \
-            dist/*.tar.gz --republish
-        shell: bash
+          cloudsmith push python rini-jain-rnye/staging dist/*.tar.gz --republish
         env:
           CLOUDSMITH_API_KEY: ${{ env.CLOUDSMITH_API_KEY }}
-          CLOUDSMITH_NAMESPACE: ${{ env.CLOUDSMITH_NAMESPACE }}
-          CLOUDSMITH_REPOSITORY: ${{ env.CLOUDSMITH_REPOSITORY }}
