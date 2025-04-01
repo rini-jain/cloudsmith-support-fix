@@ -39,6 +39,8 @@ jobs:
 
       - name: Get OIDC token and exchange with Cloudsmith
         run: |
+          echo "Namespace: $CLOUDSMITH_NAMESPACE"
+          echo "Service Slug: $CLOUDSMITH_SERVICE_SLUG"
           echo "Requesting OIDC token from GitHub..."
           value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
           "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain")
