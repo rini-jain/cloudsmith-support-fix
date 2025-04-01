@@ -1,7 +1,12 @@
 name: Promote Python Package
 
 on:
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Publish Python Package"]  # ⚠️ Make sure this name matches the publish workflow's name
+    types:
+      - completed
+    branches:
+      - main
 
 env:
   CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
@@ -18,18 +23,19 @@ permissions:
 jobs:
   promote:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Install jq
-        run: sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Get OIDC Token
         run: |
-          echo "📡 Requesting GitHub OIDC token"
+          echo "Requesting GitHub OIDC token..."
           oidc_token=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value')
 
-          echo "🔐 Exchanging with Cloudsmith..."
+          echo "Exchanging token with Cloudsmith..."
           cloudsmith_token=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"oidc_token\":\"$oidc_token\", \"service_slug\":\"${{ env.CLOUDSMITH_SERVICE_SLUG }}\"}" \
             "https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/" | jq -r '.token')
@@ -39,7 +45,7 @@ jobs:
 
       - name: Promote package
         run: |
-          echo "🚀 Promoting package $PACKAGE_NAME-$PACKAGE_VERSION from $CLOUDSMITH_REPOSITORY_SRC → $CLOUDSMITH_REPOSITORY_DEST"
+          echo "Promoting $PACKAGE_NAME-$PACKAGE_VERSION from $CLOUDSMITH_REPOSITORY_SRC to $CLOUDSMITH_REPOSITORY_DEST"
 
           curl -X POST "https://api.cloudsmith.io/v1/packages/${CLOUDSMITH_NAMESPACE}/${CLOUDSMITH_REPOSITORY_SRC}/${PACKAGE_NAME}/${PACKAGE_VERSION}/move/" \
             -H "Authorization: Bearer $CLOUDSMITH_API_KEY" \
