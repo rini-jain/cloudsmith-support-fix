@@ -40,9 +40,10 @@ jobs:
 
       - name: Show contents
         run: ls -la dist/
-             echo "token:$CLOUDSMITH_NAMESPACE"
+          
       - name: Get OIDC token
         run: |
+          echo "token:$CLOUDSMITH_NAMESPACE"
           value=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq '.value')
           echo " OIDC Token (raw): $value"
           token=$(curl -X POST -H "Content-Type: application/json" -d "{\"oidc_token\":\"$value\", \"service_slug\":\"new_bot\"}" https://api.cloudsmith.io/openid/rini-jain-rnye/ | jq -r '.token')
