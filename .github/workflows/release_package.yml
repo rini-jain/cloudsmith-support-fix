@@ -1,4 +1,4 @@
-name: Release Python Package to Staging
+name: Publish Python Package
 
 on:
   workflow_run:
@@ -8,15 +8,15 @@ on:
     branches:
       - main
 
-env:
-  CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-  CLOUDSMITH_REPOSITORY: "staging"
-  CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
-
 permissions:
-  id-token: write  # Required for OIDC
+  id-token: write
   contents: read
   actions: read
+
+env:
+  CLOUDSMITH_NAMESPACE: simran-parwani-testorg      # change if needed
+  CLOUDSMITH_REPOSITORY: staging                    # change if needed
+  CLOUDSMITH_SERVICE_SLUG: terraformbot-idAf        # change if needed
 
 jobs:
   publish:
@@ -24,70 +24,48 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - name: Install jq (for JSON parsing)
-        run: sudo apt-get install -y jq
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          pip install cloudsmith-cli
 
-      - name: Download built package artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: python-package
           path: dist
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
 
-      - name: Verify package exists
+      - name: Show contents
+        run: ls -la dist/
+
+      - name: Get OIDC token
         run: |
+          value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq '.value')
+
+          token=$(curl -s -X POST -H "Content-Type: application/json" \
+          -d "{\"oidc_token\":$value, \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/ | jq -r '.token')
+
+          curl --request GET \
+          --url https://api.cloudsmith.io/v1/user/self/ \
+          --header "X-Api-Key:Bearer $token" \
+          --header 'accept: application/json'
+
+          echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
+
+      - name: Push Python Package to Cloudsmith
+        run: |
+          echo "📦 Uploading to Cloudsmith..."
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "❌ No package found to upload"
-            exit 1
-          fi
-          echo "✅ Found package: $(ls dist/)"
-      
-      - name: Get OIDC token for Cloudsmith
-        id: oidc
-        run: |
-          # Trim any extra whitespace from env variables
-          NS=$(printf '%s' "$CLOUDSMITH_NAMESPACE" | tr -d '[:space:]')
-          SLUG=$(printf '%s' "$CLOUDSMITH_SERVICE_SLUG" | tr -d '[:space:]')
-          echo "Trimmed Namespace: [$NS]"
-          echo "Trimmed Service Slug: [$SLUG]"
-
-          echo "Requesting OIDC Token from GitHub..."
-          OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}" \
-            -H "User-Agent: actions/oidc-client" \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" | jq -r '.value')
-
-          echo "Exchanging token with Cloudsmith..."
-          response=$(curl -sS -X POST "https://api.cloudsmith.io/openid/${NS}/" \
-            -H "Content-Type: application/json" \
-            -d "{\"oidc_token\": \"${OIDC_TOKEN}\", \"service_slug\": \"${SLUG}\"}")
-          
-          echo "Cloudsmith Response:"
-          echo "$response"
-          
-          short_token=$(echo "$response" | jq -r '.token // empty')
-          
-          if [ -n "$short_token" ]; then
-            echo "CLOUDSMITH_API_KEY=$short_token" >> $GITHUB_ENV
-            echo "Token exchange successful"
-          else
-            echo "❌ Failed to retrieve short-lived token"
-            exit 1
-          fi
-        env:
-          CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-          CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
-
-      - name: Install Cloudsmith CLI
-        run: pip install cloudsmith-cli
-
-      - name: Push package to Cloudsmith Staging
-        run: |
-          echo "Pushing package to Cloudsmith..."
-          if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
-            echo "❌ No package found to upload"
+            echo "❌ No Python package found to upload"
             exit 1
           fi
           cloudsmith push python \
             $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_REPOSITORY \
-            dist/*.tar.gz --api-key="$CLOUDSMITH_API_KEY" --republish --verbose
+            dist/*.tar.gz --republish
         env:
           CLOUDSMITH_API_KEY: ${{ env.CLOUDSMITH_API_KEY }}
