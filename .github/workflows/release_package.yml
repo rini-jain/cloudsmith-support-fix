@@ -51,6 +51,9 @@ jobs:
           https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/)
 
           final_api_token=$(echo "$token_final" | jq -r '.token')
+          echo "DEBUG - token_final response:"
+          echo "$token_final"
+
           echo "Token retrieved. Setting CLOUDSMITH_API_KEY..."
           echo "CLOUDSMITH_API_KEY=$final_api_token" >> $GITHUB_ENV
 
