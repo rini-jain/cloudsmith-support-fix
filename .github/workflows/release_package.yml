@@ -45,7 +45,7 @@ jobs:
         run: |
           value=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rini-jain" | jq '.value')
           echo "🔍 OIDC Token (raw): $value"
-          token=$(curl -X POST -H "Content-Type: application/json" -d "{\"oidc_token\":\"$value\", \"service_slug\":\"github-actions-oidc\"}" https://api.cloudsmith.io/openid/rini-jain-rnye/ | jq -r '.token')
+          token=$(curl -X POST -H "Content-Type: application/json" -d "{\"oidc_token\":\"$value\", \"service_slug\":\"new_bot\"}" https://api.cloudsmith.io/openid/rini-jain-rnye/ | jq -r '.token')
           echo "🌐 Cloudsmith Response:"
           echo "$token"
 
