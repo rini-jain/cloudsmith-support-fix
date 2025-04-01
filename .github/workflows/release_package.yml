@@ -26,8 +26,8 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
-          pip install cloudsmith-cli
+          pip install --upgrade cloudsmith-cli
+        shell: bash
 
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -40,27 +40,18 @@ jobs:
 
       - name: Show contents
         run: ls -la dist/
+        shell: bash
           
       - name: Get OIDC token
         run: |
           echo "token:$CLOUDSMITH_NAMESPACE"
           value=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq '.value')
-          echo " OIDC Token (raw): $value"
-          token=$(curl -X POST -H "Content-Type: application/json" -d "{\"oidc_token\":\"$value\", \"service_slug\":\"new_bot\"}" https://api.cloudsmith.io/openid/rini-jain-rnye/ | jq -r '.token')
-          echo "Cloudsmith Response:"
-          echo "$token"
+          token=$(curl -X POST -H "Content-Type: application/json" -d "{\"oidc_token\":\"$value\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/ | jq -r '.token')
           
           short_token=$(echo "$token" | jq -r '.token // empty')
           curl --request GET --url https://api.cloudsmith.io/v1/user/self/ --header "X-Api-Key:Bearer $token" --header 'accept: application/json'
                     
-          echo " Final token: $short_token"
-
-          if [ -n "$short_token" ]; then
-            echo "CLOUDSMITH_API_KEY=$short_token" >> $GITHUB_ENV
-          else
-            echo " Failed to extract token"
-          exit 1
-          fi
+          echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
 
       - name: Push Python Package to Cloudsmith
         run: |
