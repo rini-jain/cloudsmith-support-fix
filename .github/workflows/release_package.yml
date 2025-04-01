@@ -50,7 +50,8 @@ jobs:
           -d "{\"oidc_token\":$token, \"service_slug\":\"${{ env.CLOUDSMITH_SERVICE_SLUG }}\"}" \
           https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/)
 
-          final_api_token=$(echo "$token_final" | jq -r '.token')
+          final_api_token=$(echo "$token_final" | jq -r '.token // empty')
+
           echo "DEBUG - token_final response:"
           echo "$token_final"
 
