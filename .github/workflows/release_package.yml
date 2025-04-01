@@ -48,8 +48,9 @@ jobs:
 
           echo "Exchanging token with Cloudsmith..."
           token_final=$(curl -X POST -H "Content-Type: application/json" \
-          -d "{\"oidc_token\":$token, \"service_slug\":\"${{ env.CLOUDSMITH_SERVICE_SLUG }}\"}" \
-          https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/)
+          -d "{\"oidc_token\":\"$token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+          https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/)
+
 
           final_api_token=$(echo "$token_final" | jq -r '.token // empty')
 
