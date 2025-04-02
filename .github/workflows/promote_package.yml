@@ -10,7 +10,7 @@ env:
   CLOUDSMITH_PRODUCTION_REPO: 'production'
   CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
   PACKAGE_NAME: 'example_package'
-
+  PACKAGE_SLUG: 'github.event.client_payload.package.slug'
 permissions:
   id-token: write
   contents: read
