@@ -60,7 +60,7 @@ jobs:
           echo "Fetched Package Data:"
           echo "$PACKAGE_DATA" | jq
 
-          echo "$PACKAGE_DATA" | jq -r '.data[].identifier_perm' | while read -r ID; do
+          echo "$PACKAGE_DATA" | jq -c '.data[] | select(.uploader == "new_bot") | .identifier_perm' | while read -r ID; do
             if [ -z "$ID" ] || [ "$ID" = "null" ]; then
               echo "Skipping invalid ID"
               continue
