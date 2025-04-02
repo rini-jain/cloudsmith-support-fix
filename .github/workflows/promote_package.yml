@@ -52,22 +52,25 @@ jobs:
 
       - name: Promote tagged packages
         run: |
-          PACKAGE_QUERY="tag:ready-for-production"  # <--- changed here
+          PACKAGE_QUERY="tag:ready-for-production"  
           echo "Searching for packages with query: $PACKAGE_QUERY"
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
 
           IDENTIFIER=$(echo "$PACKAGE_DATA" | jq -r '.data[] | .identifier_perm')
 
-          if [ -z "$IDENTIFIER" ] || [ "$IDENTIFIER" = "null" ]; then
-            echo "Failed to find tagged package identifier"
-            exit 1
-          fi
+          echo "$PACKAGE_DATA" | jq -r '.data[].identifier_perm' | while read -r ID; do
+            if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+              echo "Skipping invalid ID"
+              continue
+            fi
 
-          echo "Promoting package identifier: $IDENTIFIER"
-          cloudsmith mv --yes \
-            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$IDENTIFIER \
-            $CLOUDSMITH_PRODUCTION_REPO
+            echo "Promoting package identifier: $ID"
+            cloudsmith mv --yes \
+              "$CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$ID" \
+              "$CLOUDSMITH_PRODUCTION_REPO"
+          done
+
 
 
 
