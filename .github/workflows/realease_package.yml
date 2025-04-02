@@ -57,7 +57,7 @@ jobs:
           echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
        shell: bash
 
-     - name: Push package to Cloudsmith
+     - name: Push package to cloudsmith
        run: |
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
             echo "No package found to upload"
