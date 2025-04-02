@@ -1,12 +1,8 @@
 name: Promote Python Package
 
 on:
-  workflow_dispatch:
-    inputs:
-      package_version:
-        description: 'Package version to promote (e.g., 0.0.1)'
-        required: true
-        type: string
+  repository_dispatch:
+    types: [cloudsmith.package.synchronized]
 
 env:
   CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
@@ -18,8 +14,6 @@ env:
 permissions:
   id-token: write
   contents: read
-
-
 
 jobs:
   promote:
@@ -45,21 +39,31 @@ jobs:
 
           echo "CLOUDSMITH_API_KEY=$cloudsmith_token" >> $GITHUB_ENV
 
-      - name: Get package identifier and promote
+      - name: Tag the package as ready-for-production
         run: |
-          PACKAGE_QUERY="filename:${PACKAGE_NAME}-${{ github.event.inputs.package_version }}.tar.gz"
-          echo "Searching for package with query: $PACKAGE_QUERY"
+          PACKAGE_VERSION=${{ github.event.client_payload.package.version }}
+          echo "Tagging package $PACKAGE_NAME-$PACKAGE_VERSION"
+
+          cloudsmith tags add \
+            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_NAME/$PACKAGE_VERSION \
+            ready-for-production
+        shell: bash
+
+      - name: Promote tagged packages
+        run: |
+          PACKAGE_QUERY="tags:ready-for-production"
+          echo "Searching for packages with query: $PACKAGE_QUERY"
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
 
           IDENTIFIER=$(echo "$PACKAGE_DATA" | jq -r '.data[0].identifier_perm')
 
           if [ -z "$IDENTIFIER" ] || [ "$IDENTIFIER" = "null" ]; then
-            echo "Failed to find package identifier"
+            echo "Failed to find tagged package identifier"
             exit 1
           fi
 
-          echo "Found package identifier: $IDENTIFIER"
+          echo "Promoting package identifier: $IDENTIFIER"
 
           cloudsmith mv --yes \
             $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$IDENTIFIER \
