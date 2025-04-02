@@ -9,12 +9,12 @@ env:
   CLOUDSMITH_STAGING_REPO: 'staging'
   CLOUDSMITH_PRODUCTION_REPO: 'production'
   CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
-  PACKAGE_NAME: 'example_package'
-  PACKAGE_SLUG: 'github.event.client_payload.package.slug'
+  PACKAGE_SLUG: ${{ github.event.client_payload.package.PACKAGE_SLUG }}
+
 permissions:
   id-token: write
   contents: read
-
+  
 jobs:
   promote:
     runs-on: ubuntu-latest
@@ -41,14 +41,14 @@ jobs:
     
       - name: Tag the package as ready-for-production
         env:
-          PACKAGE_VERSION: ${{ github.event.client_payload.package.version }}
+          PACKAGE_VERSION: ${{ github.event.client_payload.PACKAGE_VERSION }}
         run: |
-          echo "Tagging package $PACKAGE_NAME-$PACKAGE_VERSION"
+          echo "Tagging package $PACKAGE_SLUG-$PACKAGE_VERSION"
 
-          echo "Full path: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_NAME/$PACKAGE_VERSION"
+          echo "Full path: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG/$PACKAGE_VERSION"
 
           cloudsmith tags add \
-            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_NAME/$PACKAGE_VERSION \
+            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG/$PACKAGE_VERSION \
             ready-for-production
         shell: bash
 
