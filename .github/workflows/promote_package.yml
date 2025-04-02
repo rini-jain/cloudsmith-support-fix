@@ -52,29 +52,22 @@ jobs:
 
       - name: Promote tagged packages
         run: |
-          PACKAGE_QUERY="tag:ready-for-production" 
+          PACKAGE_QUERY="tag:ready-for-production"  # <--- changed here
           echo "Searching for packages with query: $PACKAGE_QUERY"
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
 
-          echo "Fetched Package Data:"
-          echo "$PACKAGE_DATA" | jq
+          IDENTIFIER=$(echo "$PACKAGE_DATA" | jq -r '.data[0].identifier_perm')
 
-          echo "$PACKAGE_DATA" | jq -r '.data[].identifier_perm' | while read -r ID; do
-            ID_CLEANED=$(echo "$ID" | tr -d '"')
+          if [ -z "$IDENTIFIER" ] || [ "$IDENTIFIER" = "null" ]; then
+            echo "Failed to find tagged package identifier"
+            exit 1
+          fi
 
-            if [ -z "$ID_CLEANED" ] || [ "$ID_CLEANED" = "null" ]; then
-              echo "Skipping invalid ID"
-              continue
-            fi
-
-            echo "Promoting package identifier: $ID_CLEANED"
-
-            cloudsmith mv --yes \
-              $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$ID_CLEANED \
-              $CLOUDSMITH_PRODUCTION_REPO || echo "Failed to move: $ID_CLEANED"
-          done
-        shell: bash
+          echo "Promoting package identifier: $IDENTIFIER"
+          cloudsmith mv --yes \
+            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$IDENTIFIER \
+            $CLOUDSMITH_PRODUCTION_REPO
 
 
 
