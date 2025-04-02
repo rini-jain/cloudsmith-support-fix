@@ -1,58 +1,68 @@
 name: Promote Python Package
 
 on:
-  workflow_run:
-    workflows: ["Publish Python Package"] 
-    types:
-      - completed
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: 'Package version to promote (e.g., 0.0.1)'
+        required: true
+        type: string
 
 env:
   CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
-  CLOUDSMITH_REPOSITORY_SRC: ${{ vars.CLOUDSMITH_REPOSITORY_SRC }}
-  CLOUDSMITH_REPOSITORY_DEST: ${{ vars.CLOUDSMITH_REPOSITORY_DEST }}
+  CLOUDSMITH_STAGING_REPO: 'staging'
+  CLOUDSMITH_PRODUCTION_REPO: 'production'
   CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
-  PACKAGE_NAME: ${{ vars.PACKAGE_NAME }}
-  PACKAGE_VERSION: ${{ vars.PACKAGE_VERSION }}
+  PACKAGE_NAME: 'example_package'
 
 permissions:
   id-token: write
   contents: read
 
+tools:
+  - jq
+
 jobs:
   promote:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Install jq and Cloudsmith CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          pip install --upgrade cloudsmith-cli
+        shell: bash
 
-      - name: Get OIDC Token
+      - name: Get OIDC token
         run: |
           echo "Requesting GitHub OIDC token..."
           oidc_token=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value')
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
 
-          echo "Exchanging token with Cloudsmith..."
+          echo "Exchanging with Cloudsmith..."
           cloudsmith_token=$(curl -s -X POST -H "Content-Type: application/json" \
-            -d "{\"oidc_token\":\"$oidc_token\", \"service_slug\":\"${{ env.CLOUDSMITH_SERVICE_SLUG }}\"}" \
-            "https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/" | jq -r '.token')
+            -d "{\"oidc_token\":\"$oidc_token\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
+            "https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/" | jq -r '.token')
 
-          if [ -z "$cloudsmith_token" ]; then
-            echo " Failed to retrieve Cloudsmith token"
+          echo "CLOUDSMITH_API_KEY=$cloudsmith_token" >> $GITHUB_ENV
+
+      - name: Get package identifier and promote
+        run: |
+          PACKAGE_QUERY="filename:${PACKAGE_NAME}-${{ github.event.inputs.package_version }}.tar.gz"
+          echo "Searching for package with query: $PACKAGE_QUERY"
+
+          PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
+
+          IDENTIFIER=$(echo "$PACKAGE_DATA" | jq -r '.data[0].identifier_perm')
+
+          if [ -z "$IDENTIFIER" ] || [ "$IDENTIFIER" = "null" ]; then
+            echo "Failed to find package identifier"
             exit 1
           fi
 
-          echo "::add-mask::$cloudsmith_token"
-          echo "CLOUDSMITH_API_KEY=$cloudsmith_token" >> $GITHUB_ENV
+          echo "Found package identifier: $IDENTIFIER"
 
-      - name: Promote package
-        run: |
-          echo "Promoting $PACKAGE_NAME-$PACKAGE_VERSION from $CLOUDSMITH_REPOSITORY_SRC to $CLOUDSMITH_REPOSITORY_DEST"
-
-          curl -X POST "https://api.cloudsmith.io/v1/packages/${CLOUDSMITH_NAMESPACE}/${CLOUDSMITH_REPOSITORY_SRC}/${PACKAGE_NAME}/${PACKAGE_VERSION}/move/" \
-            -H "Authorization: Bearer $CLOUDSMITH_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{ \"destination_repo\": \"$CLOUDSMITH_REPOSITORY_DEST\" }"
+          cloudsmith mv --yes \
+            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$IDENTIFIER \
+            $CLOUDSMITH_PRODUCTION_REPO
+        shell: bash
