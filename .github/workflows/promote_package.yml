@@ -38,14 +38,14 @@ jobs:
             "https://api.cloudsmith.io/openid/$CLOUDSMITH_NAMESPACE/" | jq -r '.token')
 
           echo "CLOUDSMITH_API_KEY=$cloudsmith_token" >> $GITHUB_ENV
-      - name: Debug tag path
-        run: |
-           echo "Trying to tag: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_NAME/$PACKAGE_VERSION"
-
+    
       - name: Tag the package as ready-for-production
+        env:
+          PACKAGE_VERSION: ${{ github.event.client_payload.package.version }}
         run: |
-          PACKAGE_VERSION=${{ github.event.client_payload.package.version }}
           echo "Tagging package $PACKAGE_NAME-$PACKAGE_VERSION"
+
+          echo "Full path: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_NAME/$PACKAGE_VERSION"
 
           cloudsmith tags add \
             $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_NAME/$PACKAGE_VERSION \
