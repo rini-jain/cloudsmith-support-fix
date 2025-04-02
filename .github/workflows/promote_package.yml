@@ -57,7 +57,7 @@ jobs:
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
 
-          IDENTIFIER=$(echo "$PACKAGE_DATA" | jq -r '.data[].identifier_perm')
+          IDENTIFIER=$(echo "$PACKAGE_DATA" | jq -r '.data[] | .identifier_perm')
 
           if [ -z "$IDENTIFIER" ] || [ "$IDENTIFIER" = "null" ]; then
             echo "Failed to find tagged package identifier"
