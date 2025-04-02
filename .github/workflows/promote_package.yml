@@ -10,6 +10,7 @@ env:
   CLOUDSMITH_PRODUCTION_REPO: 'production'
   CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
   PACKAGE_SLUG: ${{ github.event.client_payload.package.PACKAGE_SLUG }}
+  PACKAGE_VERSION: ${{ github.event.client_payload.PACKAGE_VERSION }}
 
 permissions:
   id-token: write
@@ -40,8 +41,6 @@ jobs:
           echo "CLOUDSMITH_API_KEY=$cloudsmith_token" >> $GITHUB_ENV
     
       - name: Tag the package as ready-for-production
-        env:
-          PACKAGE_VERSION: ${{ github.event.client_payload.PACKAGE_VERSION }}
         run: |
           echo "Tagging package $PACKAGE_SLUG"
 
