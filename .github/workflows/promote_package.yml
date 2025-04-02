@@ -52,7 +52,7 @@ jobs:
 
       - name: Promote tagged packages
         run: |
-          PACKAGE_QUERY="tags:ready-for-production"
+          PACKAGE_QUERY="tag:ready-for-production"  # <--- changed here
           echo "Searching for packages with query: $PACKAGE_QUERY"
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
@@ -65,6 +65,7 @@ jobs:
           fi
 
           echo "Promoting package identifier: $IDENTIFIER"
+          cloudsmith mv --yes \
+            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$IDENTIFIER \
+            $CLOUDSMITH_PRODUCTION_REPO
 
-          cloudsmith mv --yes $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$IDENTIFIER $CLOUDSMITH_PRODUCTION_REPO
-        shell: bash
