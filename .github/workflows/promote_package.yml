@@ -43,12 +43,12 @@ jobs:
         env:
           PACKAGE_VERSION: ${{ github.event.client_payload.PACKAGE_VERSION }}
         run: |
-          echo "Tagging package $PACKAGE_SLUG-$PACKAGE_VERSION"
+          echo "Tagging package $PACKAGE_SLUG"
 
-          echo "Full path: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG/$PACKAGE_VERSION"
+          echo "Full path: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG"
 
           cloudsmith tags add \
-            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG/$PACKAGE_VERSION \
+            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG \
             ready-for-production
         shell: bash
 
