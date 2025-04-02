@@ -37,23 +37,13 @@ jobs:
        shell: bash
      - name: Get OIDC token
        run: |
-          echo "Requesting OIDC token..."
           value=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
-
-          echo "✅ OIDC Raw Token received"
-
-          echo "Exchanging token with Cloudsmith..."
-          echo "Namespace: '$(echo -n $CLOUDSMITH_NAMESPACE)'"
-          echo "Service Slug: '$CLOUDSMITH_SERVICE_SLUG'"
-
+          
           token=$(curl -s -X POST -H "Content-Type: application/json" \
-            -d "{\"oidc_token\":\"$value\", \"service_slug\":\"$CLOUDSMITH_SERVICE_SLUG\"}" \
-            "https://api.cloudsmith.io/openid/$(echo -n $CLOUDSMITH_NAMESPACE)/" | jq -r '.token')
-
-          echo "🔑 Cloudsmith Token: ${token:0:10}..."
-
-          echo "Validating Cloudsmith Token..."
+            -d "{\"oidc_token\":$value, \"service_slug\":\"${{ env.CLOUDSMITH_SERVICE_SLUG }}\"}" \
+            https://api.cloudsmith.io/openid/${{ env.CLOUDSMITH_NAMESPACE }}/ | jq -r '.token')
+          
           curl --silent --request GET \
             --url https://api.cloudsmith.io/v1/user/self/ \
             --header "X-Api-Key:Bearer $token" \
@@ -62,27 +52,14 @@ jobs:
           echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
        shell: bash
 
-
-
-
-
-
-
-     - name: Debug OIDC Token1
-       run: |
-            echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
-            echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN: $ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-     - name: Push package to Cloudsmith
-       run: |
+     -  name: Push package to Cloudsmith
+        run: |
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
             echo "No package found to upload"
             exit 1
           fi
-
-
           cloudsmith push python ${{ env.CLOUDSMITH_NAMESPACE }}/${{ env.CLOUDSMITH_REPOSITORY }} dist/*.tar.gz --republish
-       shell: bash
-
+        shell: bash
 
 
 
