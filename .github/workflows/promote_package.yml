@@ -2,7 +2,7 @@ name: Promote Python Package
 
 on:
   workflow_run:
-    workflows: ["Publish Python Package"]  # Match this with actual publish workflow name
+    workflows: ["Publish Python Package"] 
     types:
       - completed
     branches:
@@ -28,14 +28,6 @@ jobs:
     steps:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Debug Cloudsmith Vars
-        run: |
-          echo "Namespace: $CLOUDSMITH_NAMESPACE"
-          echo "Repo Src: $CLOUDSMITH_REPOSITORY_SRC"
-          echo "Repo Dest: $CLOUDSMITH_REPOSITORY_DEST"
-          echo "Package: $PACKAGE_NAME"
-          echo "Version: $PACKAGE_VERSION"
 
       - name: Get OIDC Token
         run: |
