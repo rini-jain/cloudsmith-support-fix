@@ -56,23 +56,25 @@ jobs:
           echo "Searching for packages with query: $PACKAGE_QUERY"
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
-           # 🔍 DEBUGGING: Show full package data
+
           echo "Fetched Package Data:"
           echo "$PACKAGE_DATA" | jq
 
-          echo "$PACKAGE_DATA" | jq -c '.data[] | select(.uploader == "new_bot") | .identifier_perm' | while read -r ID; do
-            if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+          echo "$PACKAGE_DATA" | jq -r '.data[] | select(.uploader == "new_bot") | .identifier_perm' | while read -r ID; do
+            ID_CLEANED=$(echo "$ID" | tr -d '"')
+
+            if [ -z "$ID_CLEANED" ] || [ "$ID_CLEANED" = "null" ]; then
               echo "Skipping invalid ID"
               continue
             fi
 
-            echo "Promoting package identifier: $ID"
+            echo "Promoting package identifier: $ID_CLEANED"
 
             cloudsmith mv --yes \
-              $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$ID \
-              $CLOUDSMITH_PRODUCTION_REPO
-
+              $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$ID_CLEANED \
+              $CLOUDSMITH_PRODUCTION_REPO || echo "Failed to move: $ID_CLEANED"
           done
         shell: bash
+
 
 
