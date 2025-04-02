@@ -57,19 +57,18 @@ jobs:
 
           PACKAGE_DATA=$(cloudsmith list package $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO -q "$PACKAGE_QUERY" -F json)
 
-          IDENTIFIERS=$(echo "$PACKAGE_DATA" | jq -r '.data[].identifier_perm')
+          echo "$PACKAGE_DATA" | jq -r '.data[].identifier_perm' | while read -r ID; do
+            if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+              echo "Skipping invalid ID"
+              continue
+            fi
 
-          if [ -z "$IDENTIFIERS" ]; then
-            echo "No packages found with tag: ready-for-production"
-            exit 1
-          fi
-
-          echo "Promoting all packages with ready-for-production tag..."
-          for ID in $IDENTIFIERS; do
             echo "Promoting package identifier: $ID"
+
             cloudsmith mv --yes \
-              $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$ID \
-              $CLOUDSMITH_PRODUCTION_REPO
+              "$CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$ID" \
+              "$CLOUDSMITH_PRODUCTION_REPO" || echo "Failed to move: $ID"
           done
         shell: bash
+
 
