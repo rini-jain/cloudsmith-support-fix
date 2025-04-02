@@ -11,10 +11,12 @@ env:
   CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
   CLOUDSMITH_REPOSITORY: "staging"
   CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
+
 permissions:
   contents: read
   actions: read
   id-token: write
+
 jobs:
  publish:
    runs-on: ubuntu-latest
@@ -28,19 +30,15 @@ jobs:
          repository: ${{ github.repository }}
          github-token: ${{ github.token }}
          run-id: ${{ github.event.workflow_run.id }}
+    
      - name: Install Cloudsmith CLI
        run: |
          pip install --upgrade cloudsmith-cli
        shell: bash
+    
      - name: List directory contents
        run: ls -la dist/
        shell: bash
-
-     - name: Debug Cloudsmith Inputs
-       run: |
-          echo "Namespace: '$CLOUDSMITH_NAMESPACE'"
-          echo "Service Slug: '$CLOUDSMITH_SERVICE_SLUG'"
-          echo "Repo: '$CLOUDSMITH_REPOSITORY'"
 
      - name: Get OIDC token
        run: |
@@ -59,16 +57,14 @@ jobs:
           echo "CLOUDSMITH_API_KEY=$token" >> $GITHUB_ENV
        shell: bash
 
-
-
-     -  name: Push package to Cloudsmith
-        run: |
+     - name: Push package to Cloudsmith
+       run: |
           if ! ls dist/*.tar.gz 1> /dev/null 2>&1; then
             echo "No package found to upload"
             exit 1
           fi
           cloudsmith push python ${{ env.CLOUDSMITH_NAMESPACE }}/${{ env.CLOUDSMITH_REPOSITORY }} dist/*.tar.gz --republish
-        shell: bash
+       shell: bash
 
 
 
