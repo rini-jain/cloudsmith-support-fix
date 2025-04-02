@@ -47,9 +47,7 @@ jobs:
 
           echo "Full path: $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG"
 
-          cloudsmith tags add \
-            $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG \
-            ready-for-production
+          cloudsmith tags add  $CLOUDSMITH_NAMESPACE/$CLOUDSMITH_STAGING_REPO/$PACKAGE_SLUG \ready-for-production
         shell: bash
 
       - name: Promote tagged packages
