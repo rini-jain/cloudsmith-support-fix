@@ -49,7 +49,7 @@ jobs:
             ready-for-production
         shell: bash
 
-      - name: Promote tagged package
+      - name: Promote tagged packages
         run: |
           PACKAGE_QUERY="tags:ready-for-production"
           echo "Searching for packages with query: $PACKAGE_QUERY"
